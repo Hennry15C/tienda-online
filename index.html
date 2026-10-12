@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Café Yungas — Tienda online</title>
+<style>
+:root{--bg:#eef1ec;--ink:#16211b;--forest:#1f3a2e;--gold:#e0a526;--card:#fff;--line:#d3dacf}
+*{box-sizing:border-box}
+body{margin:0;font-family:Georgia,"Times New Roman",serif;background:var(--bg);color:var(--ink);line-height:1.5}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+header{background:var(--forest);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:1.3rem}
+.cart-btn{background:var(--gold);color:var(--ink);border:0;border-radius:999px;padding:8px 16px;font-weight:700}
+.hero{padding:48px 20px 24px;max-width:900px;margin:auto}
+.hero h2{font-size:clamp(2rem,6vw,3.6rem);line-height:1.05;margin:0 0 12px;max-width:14ch}
+.hero p{max-width:55ch;margin:0}
+.filters{max-width:900px;margin:16px auto;padding:0 20px;display:flex;gap:8px;flex-wrap:wrap}
+.filters button{background:transparent;border:1.5px solid var(--forest);color:var(--forest);border-radius:999px;padding:6px 14px}
+.filters button.on{background:var(--forest);color:#fff}
+.grid{max-width:900px;margin:auto;padding:0 20px 60px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.thumb{height:130px;display:grid;place-items:center;font-size:3.2rem}
+.card .body{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card h3{margin:0;font-size:1.1rem}
+.card small{color:#55625a}
+.price{font-weight:700;font-size:1.15rem;margin-top:auto}
+.add{background:var(--forest);color:#fff;border:0;border-radius:6px;padding:9px}
+.add:hover{background:#2c5241}
+aside{position:fixed;top:0;right:0;height:100%;width:min(380px,100%);background:#fff;box-shadow:-4px 0 20px rgba(0,0,0,.25);transform:translateX(100%);transition:transform .25s;z-index:10;display:flex;flex-direction:column}
+aside.open{transform:none}
+aside header{position:static}
+#items{flex:1;overflow:auto;padding:14px 18px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.qty button{width:28px;height:28px;border:1px solid var(--forest);background:#fff;border-radius:6px}
+.foot{padding:16px 18px;border-top:1px solid var(--line)}
+.total{display:flex;justify-content:space-between;font-weight:700;font-size:1.2rem;margin-bottom:10px}
+.foot input{width:100%;padding:9px;margin-bottom:10px;border:1px solid var(--line);border-radius:6px;font:inherit}
+.buy{width:100%;background:var(--gold);border:0;border-radius:6px;padding:12px;font-weight:700}
+.empty{color:#55625a;padding:20px 0}
+@media (prefers-reduced-motion:reduce){aside{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Café Yungas</h1>
+  <button class="cart-btn" id="open">Carrito (<span id="count">0</span>)</button>
+</header>
+
+<section class="hero">
+  <h2>Café de altura, directo del productor.</h2>
+  <p>Granos tostados en Bolivia. Elige tus productos, arma el carrito y finaliza tu pedido por WhatsApp.</p>
+</section>
+
+<nav class="filters" id="filters" aria-label="Categorías"></nav>
+<main class="grid" id="grid"></main>
+
+<aside id="cart" aria-label="Carrito de compras">
+  <header><h1>Tu carrito</h1><button class="cart-btn" id="close">Cerrar</button></header>
+  <div id="items"></div>
+  <div class="foot">
+    <div class="total"><span>Total</span><span id="total">Bs 0</span></div>
+    <input id="name" placeholder="Tu nombre" aria-label="Tu nombre">
+    <button class="buy" id="buy">Pedir por WhatsApp</button>
+  </div>
+</aside>
+
+<script>
+// Cambia este número por el tuyo (código de país + número, sin + ni espacios)
+const WHATSAPP = "59100000000";
+
+const PRODUCTS = [
+  {id:1, name:"Café en grano 250 g", cat:"Café", price:45, emoji:"☕", color:"#e8d9c3", desc:"Tueste medio, notas a chocolate."},
+  {id:2, name:"Café molido 250 g", cat:"Café", price:48, emoji:"🫘", color:"#d9c4a8", desc:"Molido para cafetera de filtro."},
+  {id:3, name:"Café en grano 1 kg", cat:"Café", price:160, emoji:"📦", color:"#c9b08c", desc:"Presentación familiar."},
+  {id:4, name:"Taza de cerámica", cat:"Accesorios", price:55, emoji:"🍵", color:"#cfe0d4", desc:"Hecha a mano, 300 ml."},
+  {id:5, name:"Prensa francesa", cat:"Accesorios", price:120, emoji:"🫖", color:"#c4d6dd", desc:"Vidrio resistente, 600 ml."},
+  {id:6, name:"Cacao en polvo 200 g", cat:"Otros", price:35, emoji:"🍫", color:"#dccbc4", desc:"100% cacao boliviano."}
+];
+
+let cart = {};
+try { cart = JSON.parse(localStorage.getItem("cart") || "{}"); } catch(e) {}
+let filter = "Todos";
+
+const $ = id => document.getElementById(id);
+const bs = n => "Bs " + n;
+
+function save(){ try { localStorage.setItem("cart", JSON.stringify(cart)); } catch(e) {} }
+
+function renderFilters(){
+  const cats = ["Todos", ...new Set(PRODUCTS.map(p => p.cat))];
+  $("filters").innerHTML = cats.map(c =>
+    `<button class="${c===filter?"on":""}" data-c="${c}">${c}</button>`).join("");
+}
+
+function renderGrid(){
+  $("grid").innerHTML = PRODUCTS.filter(p => filter==="Todos" || p.cat===filter).map(p => `
+    <article class="card">
+      <div class="thumb" style="background:${p.color}" aria-hidden="true">${p.emoji}</div>
+      <div class="body">
+        <h3>${p.name}</h3><small>${p.desc}</small>
+        <div class="price">${bs(p.price)}</div>
+        <button class="add" data-id="${p.id}">Agregar al carrito</button>
+      </div>
+    </article>`).join("");
+}
+
+function renderCart(){
+  const ids = Object.keys(cart);
+  let total = 0, count = 0;
+  $("items").innerHTML = ids.length ? ids.map(id => {
+    const p = PRODUCTS.find(x => x.id == id), q = cart[id];
+    total += p.price * q; count += q;
+    return `<div class="row"><div><strong>${p.name}</strong><br><small>${bs(p.price)} c/u</small></div>
+      <div class="qty"><button data-d="-1" data-id="${id}" aria-label="Quitar uno">−</button>
+      <span> ${q} </span><button data-d="1" data-id="${id}" aria-label="Agregar uno">+</button></div></div>`;
+  }).join("") : `<p class="empty">Tu carrito está vacío. Agrega un producto para empezar.</p>`;
+  $("total").textContent = bs(total);
+  $("count").textContent = count;
+  save();
+}
+
+function change(id, d){
+  cart[id] = (cart[id] || 0) + d;
+  if (cart[id] <= 0) delete cart[id];
+  renderCart();
+}
+
+$("filters").onclick = e => { if(e.target.dataset.c){ filter = e.target.dataset.c; renderFilters(); renderGrid(); } };
+$("grid").onclick = e => { if(e.target.dataset.id){ change(e.target.dataset.id, 1); $("cart").classList.add("open"); } };
+$("items").onclick = e => { if(e.target.dataset.d) change(e.target.dataset.id, +e.target.dataset.d); };
+$("open").onclick = () => $("cart").classList.add("open");
+$("close").onclick = () => $("cart").classList.remove("open");
+$("buy").onclick = () => {
+  const ids = Object.keys(cart);
+  if(!ids.length){ alert("Agrega al menos un producto."); return; }
+  const name = $("name").value.trim() || "Cliente";
+  let total = 0;
+  const lines = ids.map(id => { const p = PRODUCTS.find(x => x.id == id); total += p.price*cart[id]; return `- ${cart[id]} x ${p.name} (${bs(p.price*cart[id])})`; });
+  const msg = `Hola, soy ${name}. Quiero hacer este pedido:\n${lines.join("\n")}\nTotal: ${bs(total)}`;
+  window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`, "_blank");
+};
+
+renderFilters(); renderGrid(); renderCart();
+</script>
+</body>
+</html>
